@@ -1,0 +1,9 @@
+# Ignora la carpeta del entorno virtual
+env/
+
+# Ignora todos los archivos .pyc y las carpetas __pycache__
+**/__pycache__/
+**/*.pyc
+
+# Ignora la base de datos SQLite
+db.sqlite3

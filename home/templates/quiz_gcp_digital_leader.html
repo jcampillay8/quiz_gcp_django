@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% load plotly_dash %}
+{% block title %} Quiz - GCP Digital Leader {% endblock%}
+{% block nav %}
+    {% if user.is_authenticated %}
+        <li class="nav-item">
+            <a class="nav-link" href="#">{{user|capfirst}}</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'logout' %}">Cerrar Sesión</a>
+        </li>
+    {% else %}
+        <li class="nav-item">
+            <a class="nav-link" href="{%  url 'login' %}">Iniciar Sesión</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'register' %}">Registrarse</a>
+        </li>
+    {% endif %}
+{% endblock %}
+{% block content %}
+    <body>
+        <div class="{% plotly_class name="MyDashApp"%}">
+            {% plotly_app name="MyDashApp" ratio=1%}
+        </div>
+        <div id="answer"></div>
+    </body>
+{% endblock %}

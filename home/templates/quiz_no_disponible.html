@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %} Post Page {% endblock%}
+{% block nav %}
+    {% if user.is_authenticated %}
+        <li class="nav-item">
+            <a class="nav-link" href="#">{{user|capfirst}}</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'logout' %}">Cerrar Sesión</a>
+        </li>
+    {% else %}
+        <li class="nav-item">
+            <a class="nav-link" href="{%  url 'login' %}">Iniciar Sesión</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'register' %}">Registrarse</a>
+        </li>
+    {% endif %}
+{% endblock %}
+{% block content %}
+    <h1>De momento no está disponible: {{ post.titulo }}</h1>
+
+{% endblock %}

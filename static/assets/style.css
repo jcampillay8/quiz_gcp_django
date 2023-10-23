@@ -1,0 +1,42 @@
+.unstyled{
+
+}
+.unstyled l{
+    list-style-type: none;
+    padding: 0;
+}
+
+.error ul{
+    font-weight: bold;
+    text-transform: capitalize;
+    list-style-type: none;
+    padding: 0;
+}
+
+.error ul ul{
+    font-weight: 400;
+    list-style-type: none;
+    padding: 0;
+}
+
+.post-img{
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat center center;
+    height: 100%;
+    min-height: 300px;
+}
+
+.no-border{
+    border: none;
+    background-color: transparent;
+}
+
+.no-style{
+    text-decoration: none;
+    color: black;
+}
+.no-style:hover{
+    text-decoration: none;
+    color: black;
+}

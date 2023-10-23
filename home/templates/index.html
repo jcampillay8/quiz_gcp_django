@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %} Bienvenidos a GCP-Quizes {% endblock %}
+{% block nav %}
+    {% if user.is_authenticated %}
+        <li class="nav-item">
+            <a class="nav-link" href="#">{{user|capfirst}}</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'logout' %}">Cerrar Sesión</a>
+        </li>
+    {% else %}
+        <li class="nav-item">
+            <a class="nav-link" href="{%  url 'login' %}">Iniciar Sesión</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'register' %}">Registrarse</a>
+        </li>
+    {% endif %}
+{% endblock %}
+{% block content %}
+    {% if user.is_authenticated %}
+    <div class="row">
+        {% if user.is_authenticated and user.is_superuser %}
+        <div class="col-sm-6 col-md-4 mb-3 ml-4">
+            <a class="btn btn-warning" href="{% url 'crear' %}">Crear Quiz {{user|capfirst}}</a>
+        </div>
+        {% endif %}
+    </div>
+    
+        <div class="row">
+            {% for post in posts %}
+                <div class="col-sm-6 col-md-4">
+                    <div class="card">
+                        {% if post.imagen.url == '/media/imagen'%}
+                        {% load static %}
+                            <img src="{% static 'not_image.jpg' %}" class="card-img-top" height="200px" alt="{{post.titulo}}">
+                        {% else %}
+                            <img src="{{ post.imagen.url }}" class="card-img-top" height="200px" alt="{{post.titulo}}">
+                        {% endif %}
+                        <div class="card-body">
+                            <h5 class="card-title">{{ post.titulo }}</h5>
+                            <p class="card-text mb-2">{{ post.descripcion }}</p>
+                            <div class="mb-3">
+                                <small>Autor: {{ post.autor }}</small>
+                            </div>
+                            <a href="{% url 'post' post.id %}" class="btn btn-primary">Ver más</a>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        <div class="d-flex mt-3">
+            {% if posts.has_next %}
+                <div><a href="?page={{ posts.next_page_number }}" class="btn btn-outline-success">Siguiente</a></div>
+            {% endif %}
+            {% if posts.has_previous %}
+                <div><a href="?page={{ posts.previous_page_number }}" class="btn btn-outline-success">Anterior</a></div>
+            {% endif %}
+        </div>
+        
+    {% else %}
+        <h1>Necesita <a href="{% url 'login' %}">Iniciar sesion</a> para tomar los Quiz de GCP </h1>
+    {% endif %}
+
+    </div>
+{% endblock %}
