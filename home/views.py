@@ -12,6 +12,7 @@ from home.forms import PostForm
 from home.gcp_trainer_app import app
 
 
+
 def index(request):
     posts = Post.objects.all()
     paginator = Paginator(posts, 3)
@@ -90,16 +91,25 @@ def registrarUsuario(request):
             password = form.cleaned_data['password1']
             user = authenticate(username=username, password=password)
             login(request, user)
-            for question in Question.objects.all():
+            for question_id in range(2, 322):  # Asegúrate de que este rango cubra todos los question_id que necesitas
+                question = Question.objects.get(id=question_id)
                 UserQuestionValue.objects.create(user=user, question=question, value=10)  # Crea una instancia de UserQuestionValue para cada pregunta
             return redirect('index')
     else:
         form = UserCreationForm()
     return render(request, 'registration/register.html', {'form': form})
 
+@login_required(login_url='login')
 def dash_view(request, pk):
     post = get_object_or_404(Post, id=pk)
-    if pk == 3:
+    if pk == 1:
         return render(request, 'quiz_gcp_digital_leader.html')
     else:
         return render(request, 'quiz_no_disponible.html',{'post':post})
+    
+
+
+@login_required(login_url='login')
+def test(request, pk):
+    post = get_object_or_404(Post, id=pk)
+    return render(request, 'test.html',{'post':post})

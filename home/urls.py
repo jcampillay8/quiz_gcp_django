@@ -14,4 +14,5 @@ urlpatterns = [
     path('likes/<int:pk>', views.darLike, name='dar_like'),
     path('django_plotly_dash/', include('django_plotly_dash.urls')),
     path('quiz_gcp/<int:pk>', views.dash_view, name='quiz_gcp'),
+    path('test/<int:pk>', views.test, name='test'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

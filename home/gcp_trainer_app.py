@@ -7,6 +7,9 @@ from django_plotly_dash import DjangoDash
 import dash_daq as daq
 from django.contrib.auth.models import User
 from .models import Question, Choice, UserQuestionValue
+from django.contrib.auth.models import User
+from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import F  
 import random
 
 theme = dbc.themes.BOOTSTRAP
@@ -14,19 +17,24 @@ theme = dbc.themes.BOOTSTRAP
 # Initialize the Dash app with Bootstrap
 app = DjangoDash('MyDashApp', add_bootstrap_links=True, external_stylesheets=[theme, dbc.icons.BOOTSTRAP]) 
 
+# Asume que ya tienes un usuario
+user = User.objects.get(username='jcampillay')
+
+
+user_id = user.id
+
 total_questions = 0
 correct_answers = 0
 incorrect_answers = 0
 input_threshold = 10
 
-# Load the quiz data from the database instead of a JSON file
 questions = Question.objects.all()
 
 def serve_layout():  
     return dbc.Container(
         [
             dbc.Row(dbc.Col(html.H1("Quiz_GCP - Digital Leader", className='text-center mb-4'), width=12)),
-            html.Div(id='question-index', style={'display': 'none'}),
+            html.Div(id='question-index', style={'display': True}),
             dbc.Row(
                 [
                     dbc.Col(html.H4(id='question', className='text-center mb-4'), width=12),
@@ -85,7 +93,6 @@ def serve_layout():
                         label='    ',
                         max=20,
                         min=0,
-
                     ),
                     width=4,
                 )
@@ -104,34 +111,48 @@ app.layout = serve_layout  # Pasa la función serve_layout a app.layout.
     [Output('question', 'children'),
      Output('options', 'options'),
      Output('options', 'value'),
-     Output('question-index', 'children')],
+     Output('question-index', 'children'),
+     Output('gauge-value', 'value')],
     [Input('next', 'n_clicks')],
     [State('answer', 'children'),
-     State('input_threshold', 'value')],
+     State('input_threshold', 'value'),
+     State("question-index", "children")],
     prevent_initial_call=True
 )
-def update_question(n_clicks,answer,threshold):
+def update_question_and_gauge(n_clicks, answer, threshold, question_id):
     if n_clicks >= 0 :
-        global question_index, total_questions
-        question_index1 = random.randint(0, len(questions) - 1)
-        question_index2 = random.randint(0, len(questions) - 1) 
-        while UserQuestionValue.objects.get(user=request.user, choice__question=questions[question_index1]).value < threshold or UserQuestionValue.objects.get(user=request.user, choice__question=questions[question_index2]).value < threshold:
-            question_index1 = random.randint(0, len(questions) - 1)
-            question_index2 = random.randint(0, len(questions) - 1)
+        global question_index, total_questions, user_id
 
-        if UserQuestionValue.objects.get(user=request.user, choice__question=questions[question_index1]).value >= UserQuestionValue.objects.get(user=request.user, choice__question=questions[question_index2]).value:
-            question_index = question_index1
-        else:
-            question_index = question_index2
-        question = questions[question_index].question_text
-        option_values = [choice.choice_text for choice in questions[question_index].choice_set.all()]
-        options = [{'label': val, 'value': i+1} for i, val in enumerate(option_values)]
+        user = User.objects.get(id=user_id)
+
+        try:
+            user_question_values = UserQuestionValue.objects.filter(user=user).order_by('?')[:2]
+
+            while user_question_values[0].value < threshold or user_question_values[1].value < threshold:
+                user_question_values = UserQuestionValue.objects.filter(user=user).order_by('?')[:2]
+
+            if user_question_values[0].value >= user_question_values[1].value:
+                selected_question = user_question_values[0].question
+            else:
+                selected_question = user_question_values[1].question
+
+            question = selected_question.question_text
+            option_values = [Choice.choice_text for Choice in selected_question.choice_set.all()]
+            options = [{'label': val, 'value': i+1} for i, val in enumerate(option_values)]
+            question_index = selected_question.id
+
+            gauge_value = UserQuestionValue.objects.get(user=user, question=selected_question).value
+        except ObjectDoesNotExist:
+            return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+
         if answer == "":
             total_questions += 0  
         else:
             total_questions += 1  
-        return question, options, [], question_index
-    return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+
+        return question, options, [], question_index, gauge_value
+
+    return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
 @app.callback(
     Output('answer', 'children'),
@@ -145,40 +166,30 @@ def check_answer(submit_n_clicks, next_clicked, values):
         button_id = 'No clicks yet'
     else:
         button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+
     if button_id == 'submit' and values is not None:
-        global correct_answers, incorrect_answers
-        correct_answer = [choice.id for choice in questions[question_index].choice_set.filter(is_correct=True)]
-        user_choices = UserQuestionValue.objects.filter(user=request.user, choice__question=questions[question_index])
-        if isinstance(correct_answer, list):
-            if set(values) == set(correct_answer):
-                correct_answers += 1
-                for user_choice in user_choices:
-                    user_choice.value -= 1
-                    user_choice.save()
-                return dbc.Alert([html.I(className="bi bi-check-circle-fill me-2"),"Correcto!",], color="success", style={"overflow": "auto","whiteSpace": "pre-wrap","font-size": "15px", "margig_top": '10px'}),
-            else:
-                incorrect_answers += 1
-                for user_choice in user_choices:
-                    user_choice.value += 1
-                    user_choice.save()
-                return dbc.Alert([html.I(className="bi bi-exclamation-circle-fill me-2"),"Incorrecto. La respuesta correcta es: {}.".format(correct_answer)], color="danger", style={"overflow": "auto","whiteSpace": "pre-wrap","fontSize": "larger","font-family": "Calibri"})
+        global correct_answers, incorrect_answers, user_id
+
+        user = User.objects.get(id=user_id)
+        selected_question = Question.objects.get(id=question_index)
+
+        correct_choices = list(selected_question.choice_set.order_by('id'))
+        correct_answer_ids = [i+1 for i, choice in enumerate(correct_choices) if choice.is_correct]
+        print('Respuesta correcta = ',correct_answer_ids)
+        user_choice_ids = [choice.id for choice in Choice.objects.filter(id__in=values)]
+        print('Resueta seleccionada = ',user_choice_ids)
+
+        if set(user_choice_ids) == set(correct_answer_ids):
+            correct_answers += 1
+            UserQuestionValue.objects.filter(user=user, question=selected_question).update(value=F('value') - 1)
+            return dbc.Alert([html.I(className="bi bi-check-circle-fill me-2"),"Correcto!",], color="success", style={"overflow": "auto","whiteSpace": "pre-wrap","font-size": "15px", "margig_top": '10px'}),
         else:
-            if values[0] == correct_answer:
-                correct_answers += 1
-                for user_choice in user_choices:
-                    user_choice.value -= 1
-                    user_choice.save()
-                return dbc.Alert([html.I(className="bi bi-check-circle-fill me-2"),"Correcto!",], color="success", style={"overflow": "auto","whiteSpace": "pre-wrap","font-size": "15px", "margig_top": '10px'}),
-            else:
-                incorrect_answers += 1
-                for user_choice in user_choices:
-                    user_choice.value += 1
-                    user_choice.save()
-                return dbc.Alert([html.I(className="bi bi-exclamation-circle-fill me-2"),"Incorrecto. La respuesta correcta es: {}.".format(correct_answer)], color="danger", style={"overflow": "auto","whiteSpace": "pre-wrap","fontSize": "larger","font-family": "Calibri"})
+            incorrect_answers += 1
+            UserQuestionValue.objects.filter(user=user, question=selected_question).update(value=F('value') + 1)
+            return dbc.Alert([html.I(className="bi bi-exclamation-circle-fill me-2"),"Incorrecto. La respuesta correcta es: {}.".format(correct_answer_ids)], color="danger", style={"overflow": "auto","whiteSpace": "pre-wrap","fontSize": "larger","font-family": "Calibri"})
     elif button_id == 'next_clicked':
         return ""
     return dash.no_update
-
 
 # Agrega estas funciones de devolución de llamada para actualizar los contadores en la interfaz de usuario
 @app.callback(
@@ -202,24 +213,20 @@ def update_incorrect_answers(n_clicks, value):
     return "Respuestas incorrectas: {}".format(incorrect_answers)
 
 @app.callback(
-    Output('gauge-value', 'value'),
-    [Input('next', 'n_clicks')])
-def update_gauge(n_clicks):
-    if n_clicks > 0:
-        return UserQuestionValue.objects.get(user=request.user, choice__question=questions[question_index]).value
-
-@app.callback(
     [Output("confirm", "displayed"), Output("confirm", "message")],
     [Input("open-explanation", "n_clicks")],
     [State("confirm", "displayed"), State("question-index", "children")]
 )
-def toggle_modal_and_update_message(n_clicks, is_open, question_index):
+def toggle_modal_and_update_message(n_clicks, is_open, question_id):
     if n_clicks is not None and n_clicks > 0:
-        # Asegúrate de que question_index sea un número válido y esté dentro de los límites
-        question_index = int(question_index)
-        if 0 <= question_index < len(questions):
-            return not is_open, questions[question_index].explanation
+        question_id = int(question_id)
+        try:
+            selected_question = Question.objects.get(id=question_id)
+            return not is_open, selected_question.explanation
+        except Question.DoesNotExist:
+            pass
     return is_open, ""
+
 
 @app.callback(
     Output('next_clicked', 'data'),
@@ -244,10 +251,14 @@ def open_reset_dialog(n_clicks):
 )
 def reset_values(n_clicks):
     if n_clicks is not None and n_clicks > 0:
-        user_choices = UserQuestionValue.objects.filter(user=request.user)
+        # Asume que tienes el user_id disponible
+        global user_id
+        user = User.objects.get(id=user_id)
+        
+        # Ahora puedes usar 'user' en lugar de 'request.user'
+        user_choices = UserQuestionValue.objects.filter(user=user)
         for user_choice in user_choices:
             user_choice.value = 10
             user_choice.save()
         return "Los valores han sido restablecidos a 10."
-    return ""
 
